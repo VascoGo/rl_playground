@@ -185,7 +185,26 @@ def evaluation(env, n_eval_episodes, env_seed, max_steps, Qtable):
 
     return mean_reward, std_reward
 
+import time
+import gymnasium as gym
+import numpy as np
 
+def evaluation2(Qtable, n_episodes=3, max_steps=99, delay=0.3):
+    env = gym.make("Taxi-v4", render_mode="human")
+
+    for _ in range(n_episodes):
+        state, _ = env.reset()
+
+        for _ in range(max_steps):
+            action = np.argmax(Qtable[state])
+            state, _, terminated, truncated, _ = env.step(action)
+            time.sleep(delay)
+
+            if terminated or truncated:
+                time.sleep(0.5)
+                break
+
+    env.close()
 
 env = gym.make("Taxi-v4", render_mode="rgb_array")
 
@@ -199,3 +218,7 @@ qtable_taxi = train(env, qtable, n_train_episodes, max_steps, min_epsilon, max_e
 mean_reward, std_reward = evaluation(env, n_eval_episodes, env_seed, max_steps, qtable_taxi)
 
 print (f"Mean reward: {mean_reward:2f} +/- {std_reward}")
+
+env.close()
+
+evaluation2(qtable_taxi)
