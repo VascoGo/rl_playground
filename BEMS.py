@@ -98,5 +98,55 @@ class BEMS(gym.Env):
         return observation, info
 
     def step(self, action):
+
+        reward = self._get_reward(action)
+
+        truncated = False
+
+        if action[0] == 1.0:
+            self._agent_state["status"][1] = 1.0
+            self._agent_state["status"][0] = self._agent_state["status"][0] + self._charge_rate
+            if self._agent_state["status"][0] > 1.0:
+                self._agent_state["status"][0] = 1.0
+        else:
+            self._agent_state["status"][1] = 0.0
+
+        if self._agent_state["status"][2] == 1.0:
+            self._agent_state["status"][0] = self._agent_state["status"][0] - self._decay_rate if  self._agent_state["status"][0] >= self._decay_rate else 0
+            self._agent_state["status"][4] -= 1
+            if self._agent_state["status"][4] == 0:
+                finished_task = int(self._agent_state["status"][3]) 
+                self._agent_state["status"][2] = 0
+                self._agent_state["status"][3] = -1
+
+                self._agent_state["tasks"][finished_task] = 0
+                self._agent_state["task_mask"][finished_task] = 0
+
+        for i in range(self._task_queue):
+            if (self._agent_state["task_mask"][i] == 1):
+                self._agent_state["tasks"][i] -= 1
+                if self._agent_state["tasks"][i] == 0:
+                    self._agent_state["task_mask"][i] = 0
+                    if int(self._agent_state["status"][3]) == i:
+                        self._agent_state["status"][2] = 0                        
+                        self._agent_state["status"][3] = -1
+                        self._agent_state["status"][4] = 0
+
+        if action[1] != self._task_queue and self._agent_state["status"][2] == 0 and self._agent_state["status"][0] > 0.0:
+            index = action[1]
+            if self._agent_state["task_mask"][index] == 1:
+                self._agent_state["status"][2] = 1.0
+                self._agent_state["status"][3] = index
+                self._agent_state["status"][4] = 20
+
+        if (self._agent_state["status"][0] == 0.0 and self._agent_state["status"][2] == 1.0):
+            self._agent_state["status"][2] = 0.0
+            self._agent_state["status"][3] = -1.0
+            self._agent_state["status"][4] = 0.0
+
+        terminated = False
+
+        if np.count_nonzero(self._agent_state["task_mask"]) == 0:
+            terminated = True
         
-        return super().step(action)
+        return self._get_obs(), reward, terminated, truncated, self._get_info()
